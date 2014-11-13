@@ -2,8 +2,8 @@
 namespace ZF2Extension;
 
 use Serializable,
-	//Traversable,
-	//Closure,
+	Traversable,
+	Closure,
 	Zend\Mvc\MvcEvent,
 	Zend\Version\Version,
 	Zend\ModuleManager\Feature\ConfigProviderInterface,
@@ -47,7 +47,7 @@ class ZF2 {
 	            $reflect = new \ReflectionClass($context['returnValue']);
 	           
 	            $properties = array();
-    	        foreach ($reflect->getProperties(ReflectionProperty::IS_PUBLIC | ReflectionProperty::IS_PROTECTED | ReflectionProperty::IS_PRIVATE) as $prop) {
+    	        foreach ($reflect->getProperties(\ReflectionProperty::IS_PUBLIC | \ReflectionProperty::IS_PROTECTED | \ReflectionProperty::IS_PRIVATE) as $prop) {
     	            $prop->setAccessible(true);
     	            $value = $prop->getValue($context['returnValue']);
     	            if (is_object($value)) {
@@ -85,11 +85,9 @@ class ZF2 {
 	    }
 	    
 	    $config = $module->getConfig();
-	    if ($config instanceof Traversable) {
-	        $config = ArrayUtils::iteratorToArray($config);
-	    }
+	    $config = $this->makeArraySerializable($config);
 	    
-	    $moduleObject = new ReflectionObject($module);
+	    $moduleObject = new \ReflectionObject($module);
 	    $location = $moduleObject->getFileName();
 	    
 	    $storage['modules'][$moduleName] = array(  'location' => $location,
@@ -212,11 +210,11 @@ class ZF2 {
 		$serviceLocator = $application->getServiceManager();
 		
 		if ($serviceLocator->has('Config')) {
-    		 $storage['config'][] = $serviceLocator->get('Config');
+    		 $storage['config'][] = $this->makeArraySerializable($serviceLocator->get('Config'));
 		}
 		
 		if ($serviceLocator->has('ApplicationConfig')) {
-		    $storage['applicationConfig'][] = $serviceLocator->get('ApplicationConfig');
+		    $storage['applicationConfig'][] = $this->makeArraySerializable($serviceLocator->get('ApplicationConfig'));
 		}
 		
 		$this->isConfigSaved = true;
