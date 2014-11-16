@@ -99,7 +99,8 @@ class ZF2 {
 	    
     	$storage['forms'][get_class($form)] = array(   'label'      => $form->getLabel(),
                     	                               'elements'   => $form->getElements(),
-                    	                               'attributes' => $form->getAttributes());
+                    	                               'attributes' => $form->getAttributes(),
+                    	                               'messages'   => $form->getMessages());
 	}
 	
 	////////////////////////////////////////////////////////////////
