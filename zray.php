@@ -239,27 +239,28 @@ class ZF2 {
 	 *
 	 * @return array
 	 */
-	private function makeArraySerializable($data)
-	{
-	    $serializable = array();
-	
-	    foreach (ArrayUtils::iteratorToArray($data) as $key => $value) {
-	        if ($value instanceof Traversable || is_array($value)) {
-	            $serializable[$key] = $this->makeArraySerializable($value);
-	
-	            continue;
-	        }
-	
-	        if ($value instanceof Closure) {
-	            $serializable[$key] = new ClosureStub();
-	
-	            continue;
-	        }
-	
-	        $serializable[$key] = $value;
-	    }
-	
-	    return $serializable;
+	private function makeArraySerializable($data) {
+		$serializable = array();
+		try {
+			foreach (ArrayUtils::iteratorToArray($data) as $key => $value) {
+					if ($value instanceof Traversable || is_array($value)) {
+					$serializable[$key] = $this->makeArraySerializable($value);
+
+						continue;
+					}
+
+					if ($value instanceof Closure) {
+						$serializable[$key] = new ClosureStub();
+						continue;
+					}
+
+					$serializable[$key] = $value;
+			}
+		} catch (\InvalidArgumentException $e) {
+			return $serializable;
+		}
+
+		return $serializable;
 	}
 	
 	private function reorderArray($config) {
