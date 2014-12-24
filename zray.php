@@ -1,4 +1,9 @@
 <?php
+/*********************************
+	Zend Framework 2 Z-Ray Extension
+	Version: 1.00
+**********************************/
+
 namespace ZF2Extension;
 
 use Serializable,
