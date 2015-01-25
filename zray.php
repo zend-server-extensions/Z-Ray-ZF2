@@ -1,4 +1,9 @@
 <?php
+/*********************************
+	Zend Framework 2 Z-Ray Extension
+	Version: 1.00
+**********************************/
+
 namespace ZF2Extension;
 
 use Serializable,
@@ -248,27 +253,28 @@ class ZF2 {
 	 *
 	 * @return array
 	 */
-	private function makeArraySerializable($data)
-	{
-	    $serializable = array();
+	private function makeArraySerializable($data) {
+		$serializable = array();
+		try {
+			foreach (ArrayUtils::iteratorToArray($data) as $key => $value) {
+					if ($value instanceof Traversable || is_array($value)) {
+					$serializable[$key] = $this->makeArraySerializable($value);
 
-	    foreach (ArrayUtils::iteratorToArray($data) as $key => $value) {
-	        if ($value instanceof Traversable || is_array($value)) {
-	            $serializable[$key] = $this->makeArraySerializable($value);
+						continue;
+					}
 
-	            continue;
-	        }
+					if ($value instanceof Closure) {
+						$serializable[$key] = new ClosureStub();
+						continue;
+					}
 
-	        if ($value instanceof Closure) {
-	            $serializable[$key] = new ClosureStub();
+					$serializable[$key] = $value;
+			}
+		} catch (\InvalidArgumentException $e) {
+			return $serializable;
+		}
 
-	            continue;
-	        }
-
-	        $serializable[$key] = $value;
-	    }
-
-	    return $serializable;
+		return $serializable;
 	}
 
 	private function reorderArray($config) {
