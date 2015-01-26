@@ -127,8 +127,8 @@ class ZF2 {
 	////////////////////////////////////////////////////////////////
 
     private function collectVersionData(&$storage) {
-
-		if ($this->isLatestVersionSaved){
+        
+		if (! class_exists('Zend\Version\Version') || $this->isLatestVersionSaved){
 			return;
 		}
 
