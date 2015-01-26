@@ -17,17 +17,17 @@ use Serializable,
 	Zend\Stdlib\ArrayUtils;
 
 class ZF2 {
-	
+
 	private $isConfigSaved = false;
 	private $isModulesSaved = false;
 	private $isEventSaved = false;
 	private $isLatestVersionSaved = false;
 	private $helpers = array();
 	private $backtrace = null;
-	
+
 	public function storeTriggerExit($context, &$storage) {
 		$mvcEvent = $context["functionArgs"][1];
-		
+
 		if ($mvcEvent instanceof MvcEvent) {
 			$storage['events'][] = array(	'name' => $context["functionArgs"][0],
     										'target' => $this->getEventTarget($mvcEvent),
@@ -36,21 +36,21 @@ class ZF2 {
     										'memory' => $this->formatSizeUnits(memory_get_usage(true)),
     										'time' => $this->formatTime($context['durationInclusive']) . 'ms');
 		}
-		
+
 		$this->collectVersionData($storage);
 		$this->collectRequest($context["functionArgs"][0], $mvcEvent, $storage);
 		$this->collectConfigurations($mvcEvent, $storage);
 	}
-	
+
 	public function storeHelperExit($context, &$storage) {
 	    $helperName = $context["functionArgs"][0]; // plugin  name
-	    
+
 	    if (! array_key_exists($helperName, $this->helpers)) {
 	        $this->helpers[$helperName]['count'] = 1;
 	        if (is_object($context['returnValue'])) {
-	            
+
 	            $reflect = new \ReflectionClass($context['returnValue']);
-	           
+
 	            $properties = array();
     	        foreach ($reflect->getProperties(\ReflectionProperty::IS_PUBLIC | \ReflectionProperty::IS_PROTECTED | \ReflectionProperty::IS_PRIVATE) as $prop) {
     	            $prop->setAccessible(true);
@@ -61,7 +61,7 @@ class ZF2 {
     	                $properties[$prop->getName()] = $value;
     	            }
     	        }
-	           
+
 	           $this->helpers[$helperName]['properties'] = $properties;
 	        }
 	    } else {
@@ -72,57 +72,71 @@ class ZF2 {
 	public function storeApplicationExit($context, &$storage) {
 	    $Zend_Mvc_Application = $context['this'];
 	    $response = $Zend_Mvc_Application->getResponse();
-	   
+
 	    //Zend\Http\PhpEnvironment\Response
 	    $storage['response'][] = $response;
-	    
+
 	    // store the kept helpers info
 	    $storage['viewHelpers'][] = $this->helpers;
 	}
-	
+
 	public function storeModulesInfoExit($context, &$storage) {
 	    $event = $context["functionArgs"][0]; // event
 	    $module = $event->getModule();
 	    $moduleName = $event->getModuleName();
-	     
+
 	    if (!$module instanceof ConfigProviderInterface && !is_callable(array($module, 'getConfig'))) {
 	        return;
 	    }
-	    
+
 	    $config = $module->getConfig();
 	    $config = $this->makeArraySerializable($config);
-	    
+
 	    $moduleObject = new \ReflectionObject($module);
 	    $location = $moduleObject->getFileName();
-	    
+
 	    $storage['modules'][$moduleName] = array(  'location' => $location,
 	                                               'config' => $config);
 	}
-	
+
 	public function storeFormInfoExit($context, &$storage) {
 	    $form = $context["functionArgs"][0]; // form object
-	    
+
+	    // Needs to filter csrf elements to avoid Session serialization that leads to error
+	    $elements = array();
+	    foreach ($form->getElements() as $element) {
+	        if (!$element instanceof \Zend\Form\Element\Csrf) {
+	            $elements[] = $element;
+	        } else {
+	            $csrf = clone($element);
+	            $csrfOptions = $element->getCsrfValidatorOptions();
+                $csrfOptions = array_merge($csrfOptions, array('name' => $element->getName()));
+                $csrf->setCsrfValidator(new \Zend\Validator\Csrf($csrfOptions));
+	            $elements[] = $csrf;
+	        }
+	    }
+
     	$storage['forms'][get_class($form)] = array(   'label'      => $form->getLabel(),
-                    	                               'elements'   => $form->getElements(),
+                    	                               'elements'   => $elements,
                     	                               'attributes' => $form->getAttributes(),
                     	                               'messages'   => $form->getMessages());
 	}
-	
+
 	////////////////////////////////////////////////////////////////
 	//   PRIVATES
 	////////////////////////////////////////////////////////////////
-	
+
     private function collectVersionData(&$storage) {
-        
+
 		if ($this->isLatestVersionSaved){
 			return;
 		}
-		
+
 		if(! function_exists('zend_shm_cache_store') || !zend_shm_cache_fetch('ZF2_version_isLatest')) {
 		    $isLatest = Version::isLatest();
 		    $latest   = Version::getLatest();
 		    $isLatest = ($isLatest) ? 'yes' : 'no';
-		    
+
 		    if(function_exists('zend_shm_cache_store')) {
 		        zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
 		        zend_shm_cache_store('ZF2_version_latest', $latest);
@@ -131,13 +145,13 @@ class ZF2 {
 		    $isLatest = zend_shm_cache_fetch('ZF2_version_isLatest');
 		    $latest = zend_shm_cache_fetch('ZF2_version_latest');
 		}
-		
+
 		$latest = ($latest === null) ? 'N/A' : $latest;
-		
+
 		$storage['version'][] = array('version' => Version::VERSION, 'isLatest' => $isLatest,'latest' => $latest);
 		$this->isLatestVersionSaved = true;
 	}
-	
+
 	/**
 	 * Returns the line number of the file from which the event was triggered.
 	 *
@@ -150,7 +164,7 @@ class ZF2 {
 			return basename(dirname($this->backtrace[0]['file'])) . '/' . basename($this->backtrace[0]['file']);
 		}
 	}
-	
+
 	private function getEventTriggerLine() {
 		if (!$this->backtrace) {
 			$trace = debug_backtrace();
@@ -160,7 +174,7 @@ class ZF2 {
 			return $this->backtrace[0]['line'];
 		}
 	}
-	
+
 	/**
 	 * Returns either the class name of the target, or the target string
 	 *
@@ -169,26 +183,26 @@ class ZF2 {
 	private function getEventTarget($event) {
 		return (is_object($event->getTarget())) ? get_class($event->getTarget()) : (string) $event->getTarget();
 	}
-	
+
 	private function collectRequest($event, $mvcEvent, &$storage) {
 		if (!($mvcEvent instanceof MvcEvent) ||  $event != MvcEvent::EVENT_FINISH) {
 			return;
 		}
-		
+
 		$templates   = array();
 		$match       = $mvcEvent->getRouteMatch();
-	
+
 		$templates[] = $mvcEvent->getViewModel()->getTemplate();
 		if ($mvcEvent->getViewModel()->hasChildren()) {
 			foreach ($mvcEvent->getViewModel()->getChildren() as $child) {
 				$templates[] = $child->getTemplate();
 			}
 		}
-	
+
 		if (empty($templates)) {
 			$templates[] = 'N/A';
 		}
-	
+
 		$data = array(
 				'method'     => $mvcEvent->getRequest()->getMethod(),
 				'status'     => $mvcEvent->getResponse()->getStatusCode(),
@@ -199,30 +213,30 @@ class ZF2 {
 		);
 		$storage['request'][] = $data;
 	}
-	 	
+
 	private function collectConfigurations($mvcEvent, &$storage) {
 		if (!($mvcEvent instanceof MvcEvent)) {
 			return;
 		}
-		
+
 		if ($this->isConfigSaved) {
 			return;
 		}
-		
+
 		if (! $application = $mvcEvent->getApplication()) {
 			return;
 		}
-		
+
 		$serviceLocator = $application->getServiceManager();
-		
+
 		if ($serviceLocator->has('Config')) {
     		 $storage['config'][] = $this->makeArraySerializable($serviceLocator->get('Config'));
 		}
-		
+
 		if ($serviceLocator->has('ApplicationConfig')) {
 		    $storage['applicationConfig'][] = $this->makeArraySerializable($serviceLocator->get('ApplicationConfig'));
 		}
-		
+
 		$this->isConfigSaved = true;
 	}
 
@@ -231,7 +245,7 @@ class ZF2 {
 	        $storage['config'][] = array( 'name' => $name, 'data' => $data);
 	    }
 	}
-	
+
 	/**
 	 * Replaces the un-serializable items in an array with stubs
 	 *
@@ -262,7 +276,7 @@ class ZF2 {
 
 		return $serializable;
 	}
-	
+
 	private function reorderArray($config) {
 	    $reorderedArray = array();
 	    foreach ($config as $key => $value) {
@@ -273,9 +287,9 @@ class ZF2 {
 	    }
 	    return $reorderedArray + $config;
 	}
-	
+
 	private function formatSizeUnits($bytes) {
-		
+
 		if ($bytes >= 1073741824) {
 			$bytes = number_format ( $bytes / 1073741824, 2 ) . ' GB';
 		} elseif ($bytes >= 1048576) {
@@ -286,7 +300,7 @@ class ZF2 {
 			$bytes = $bytes . ' bytes';
 		} elseif ($bytes == 1) {
 			$bytes = $bytes . ' byte';
-		} 
+		}
         else
         {
             $bytes = '0 bytes';
@@ -294,13 +308,13 @@ class ZF2 {
 
         return $bytes;
 	}
-	
+
 	private function formatTime($ms) {
 		//$uSec = $input % 1000;
 		$input = floor($ms / 1000);
 		return $input;
 	}
-	
+
 }
 
 /**
@@ -308,7 +322,6 @@ class ZF2 {
  */
 class ClosureStub {
 }
-
 
 $zf2Storage = new ZF2();
 
