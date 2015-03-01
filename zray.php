@@ -131,13 +131,20 @@ class ZF2 {
 		if (! class_exists('Zend\Version\Version') || $this->isLatestVersionSaved){
 			return;
 		}
-
+		
 		if(! function_exists('zend_shm_cache_store') || !zend_shm_cache_fetch('ZF2_version_isLatest')) {
-		    $isLatest = Version::isLatest();
-		    $latest   = Version::getLatest();
-		    $isLatest = ($isLatest) ? 'yes' : 'no';
-
-		    if(function_exists('zend_shm_cache_store')) {
+		    if ($this->checkStatus('http://www.zend.com/products/server/license/ping')) {
+    		    	$isLatest = Version::isLatest();
+    		    	$latest   = Version::getLatest();
+    		    	$isLatest = ($isLatest) ? 'yes' : 'no';
+    
+    		    	if(function_exists('zend_shm_cache_store')) {
+	    			zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
+    		        	zend_shm_cache_store('ZF2_version_latest', $latest);
+    		    	}
+		    } else {
+		        $latest = null;
+		        $isLatest = 'N/A';
 		        zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
 		        zend_shm_cache_store('ZF2_version_latest', $latest);
 		    }
@@ -315,6 +322,30 @@ class ZF2 {
 		return $input;
 	}
 
+	private function checkStatus($url) {
+	    $ch = curl_init();
+	    curl_setopt($ch, CURLOPT_URL, $url);
+	    curl_setopt($ch, CURLOPT_NOBODY, true);
+	    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+	    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	    curl_setopt($ch, CURLOPT_VERBOSE, false);
+	    curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+	    curl_exec($ch);
+	     
+	    if (curl_exec($ch) === false) {
+	        return false;
+	    }
+	
+	    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	
+	    curl_close($ch);
+	
+	    if ($httpcode >= 200 && $httpcode < 300) {
+	        return true;
+	    }
+	     
+	    return false;
+	}
 }
 
 /**
