@@ -128,7 +128,7 @@ class ZF2 {
 
     private function collectVersionData(&$storage) {
         
-		if (! class_exists('Zend\Version\Version') || $this->isLatestVersionSaved){
+		if (! function_exists('curl_init') || ! class_exists('Zend\Version\Version') || $this->isLatestVersionSaved){
 			return;
 		}
 		
