@@ -139,18 +139,25 @@ class ZF2 {
     		    	$isLatest = ($isLatest) ? 'yes' : 'no';
     
     		    	if(function_exists('zend_shm_cache_store')) {
-	    			zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
+				zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
     		        	zend_shm_cache_store('ZF2_version_latest', $latest);
     		    	}
 		    } else {
 		        $latest = null;
 		        $isLatest = 'N/A';
-		        zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
-		        zend_shm_cache_store('ZF2_version_latest', $latest);
+			if(function_exists('zend_shm_cache_store')) {
+				zend_shm_cache_store('ZF2_version_isLatest', $isLatest);
+				zend_shm_cache_store('ZF2_version_latest', $latest);
+			}
 		    }
 		} else {
-		    $isLatest = zend_shm_cache_fetch('ZF2_version_isLatest');
-		    $latest = zend_shm_cache_fetch('ZF2_version_latest');
+			if(function_exists('zend_shm_cache_fetch')) {
+				$isLatest = zend_shm_cache_fetch('ZF2_version_isLatest');
+				$latest = zend_shm_cache_fetch('ZF2_version_latest');
+			} else {
+				$latest = null;
+		        	$isLatest = 'N/A';
+			}
 		}
 
 		$latest = ($latest === null) ? 'N/A' : $latest;
